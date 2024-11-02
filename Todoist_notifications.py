@@ -43,7 +43,11 @@ async def home():
 
 @app.get("/callback")
 async def callback(code: str):
-    global access_token
+    print("Current working directory:", os.getcwd())
+    # Store the code in a JSON file
+    with open('oauth_code.json', 'w') as code_file:
+        json.dump({"oauth_code": code}, code_file)
+
     token_data = {
         'client_id': CLIENT_ID,
         'client_secret': CLIENT_SECRET,
@@ -52,12 +56,23 @@ async def callback(code: str):
     }
 
     token_response = requests.post(TOKEN_URL, data=token_data)
+
+    if token_response.status_code != 200:
+        print(f"Error retrieving access token: {token_response.text}")
+        return {"error": "Failed to retrieve access token"}
+
     token_json = token_response.json()
     access_token = token_json.get('access_token')
 
-    # Store the access token in a JSON file
-    with open('token.json', 'w') as token_file:
-        json.dump({"access_token": access_token}, token_file)
+    if access_token:
+        try:
+            with open('token.json', 'w') as token_file:
+                json.dump({"access_token": access_token}, token_file)
+            print("Access token saved to token.json")
+        except Exception as e:
+            print(f"Error writing token to file: {e}")
+    else:
+        print("Access token not found in response.")
 
     return {"access_token": access_token}
 

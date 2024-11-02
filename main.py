@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import requests
@@ -33,11 +33,18 @@ async def callback(code: str):
     }
     
     response = requests.post(Todoist_notifications.TOKEN_URL, data=token_data)
+    
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail="Failed to retrieve access token")
+
     token_data = response.json()
     access_token = token_data.get('access_token')
     
-    Todoist_notifications.set_access_token(access_token)
-    
+    if access_token:
+        Todoist_notifications.set_access_token(access_token)
+    else:
+        raise HTTPException(status_code=400, detail="Access token not found in response")
+
     return {"access_token": access_token}
 
 @app.post("/tasks", response_model=dict)
