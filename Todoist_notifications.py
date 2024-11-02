@@ -194,6 +194,13 @@ def delete_task(task_id):
     else:
         print(f"Error deleting task: {response.text}")
 
+def authenticate_todoist():
+    # This function will handle the OAuth flow for Todoist
+    # You can implement the logic to get the authorization URL and handle the token exchange here
+    scope = "data:read_write"
+    auth_url = f"{AUTHORIZATION_URL}?response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope={scope}"
+    return auth_url
+
 if __name__ == "__main__":
     access_token = None
     threading.Thread(target=start_fastapi_app).start()

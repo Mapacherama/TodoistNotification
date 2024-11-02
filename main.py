@@ -1,12 +1,20 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 import Todoist_notifications
 
 app = FastAPI()
 
-# Pydantic models for request validation
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 class TaskCreate(BaseModel):
     content: str
     due_date: str = None
@@ -14,14 +22,13 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     content: str
 
-@app.get("/")
-async def home():
-    return {"message": "Welcome! Please login."}
-
-@app.get("/login")
-async def login():
-    scope = "data:read_write"
-    return RedirectResponse(url=f"{Todoist_notifications.AUTHORIZATION_URL}?response_type=code&client_id={Todoist_notifications.CLIENT_ID}&redirect_uri={Todoist_notifications.REDIRECT_URI}&scope={scope}")
+@app.get("/authenticate", summary="Authenticate Todoist", tags=["Auth"])
+def todoist_authenticate():
+    auth_url = Todoist_notifications.authenticate_todoist()
+    print("Redirecting to Todoist for authentication...")
+    print(f"Authorization URL: {auth_url}")
+    
+    return RedirectResponse(url=auth_url)
 
 @app.get("/callback")
 async def callback(code: str):
@@ -49,33 +56,21 @@ async def callback(code: str):
 
 @app.post("/tasks", response_model=dict)
 async def create_task(task: TaskCreate):
-    """
-    Create a new task
-    """
     Todoist_notifications.create_task(task.content, task.due_date)
     return {"message": "Task created successfully."}
 
 @app.get("/tasks", response_model=list)
 async def read_tasks():
-    """
-    Get all tasks
-    """
     tasks = Todoist_notifications.read_tasks()
     return tasks
 
 @app.put("/tasks/{task_id}", response_model=dict)
 async def update_task(task_id: str, task: TaskUpdate):
-    """
-    Update a task
-    """
     Todoist_notifications.update_task(task_id, task.content)
     return {"message": "Task updated successfully."}
 
 @app.delete("/tasks/{task_id}", response_model=dict)
 async def delete_task(task_id: str):
-    """
-    Delete a task
-    """
     Todoist_notifications.delete_task(task_id)
     return {"message": "Task deleted successfully."}
 
