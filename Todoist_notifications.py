@@ -1,7 +1,7 @@
 import requests
 import time
 from plyer import notification
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -9,22 +9,20 @@ import os
 import threading
 import json
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
 
-# CORS middleware to allow requests from the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this to your needs
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-CLIENT_ID = os.getenv('CLIENT_ID')  # Get CLIENT_ID from environment variable
-CLIENT_SECRET = os.getenv('CLIENT_SECRET')  # Get CLIENT_SECRET from environment variable
+CLIENT_ID = os.getenv('CLIENT_ID')
+CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 REDIRECT_URI = 'http://localhost:5000/callback'
 AUTHORIZATION_URL = 'https://todoist.com/oauth/authorize'
 TOKEN_URL = 'https://todoist.com/oauth/access_token'
@@ -56,6 +54,10 @@ async def callback(code: str):
     token_response = requests.post(TOKEN_URL, data=token_data)
     token_json = token_response.json()
     access_token = token_json.get('access_token')
+
+    # Store the access token in a JSON file
+    with open('token.json', 'w') as token_file:
+        json.dump({"access_token": access_token}, token_file)
 
     return {"access_token": access_token}
 
