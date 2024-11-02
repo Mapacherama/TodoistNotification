@@ -1,24 +1,30 @@
-from quart import Quart, redirect, request, jsonify
+from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 import requests
 import Todoist_notifications
-from flasgger import Swagger
 
-app = Quart(__name__)
-swagger = Swagger(app)
+app = FastAPI()
 
-@app.route('/')
+# Pydantic models for request validation
+class TaskCreate(BaseModel):
+    content: str
+    due_date: str = None
+
+class TaskUpdate(BaseModel):
+    content: str
+
+@app.get("/")
 async def home():
-    return 'Welcome! Please <a href="/login">login</a>.'
+    return {"message": "Welcome! Please login."}
 
-@app.route('/login')
-def login():
+@app.get("/login")
+async def login():
     scope = "data:read_write"
-    return redirect(f"{Todoist_notifications.AUTHORIZATION_URL}?response_type=code&client_id={Todoist_notifications.CLIENT_ID}&redirect_uri={Todoist_notifications.REDIRECT_URI}&scope={scope}")
+    return RedirectResponse(url=f"{Todoist_notifications.AUTHORIZATION_URL}?response_type=code&client_id={Todoist_notifications.CLIENT_ID}&redirect_uri={Todoist_notifications.REDIRECT_URI}&scope={scope}")
 
-@app.route('/callback')
-async def callback():
-    code = request.args.get('code')
-    
+@app.get("/callback")
+async def callback(code: str):
     token_data = {
         'client_id': Todoist_notifications.CLIENT_ID,
         'client_secret': Todoist_notifications.CLIENT_SECRET,
@@ -32,81 +38,39 @@ async def callback():
     
     Todoist_notifications.set_access_token(access_token)
     
-    return f'Access Token: {access_token}'
+    return {"access_token": access_token}
 
-@app.route('/tasks', methods=['POST'])
-async def create_task():
+@app.post("/tasks", response_model=dict)
+async def create_task(task: TaskCreate):
     """
     Create a new task
-    ---
-    parameters:
-      - name: content
-        in: body
-        type: string
-        required: true
-      - name: due_date
-        in: body
-        type: string
-        required: false
-    responses:
-      201:
-        description: Task created successfully
     """
-    content = (await request.get_json()).get('content')
-    due_date = (await request.get_json()).get('due_date')
-    Todoist_notifications.create_task(content, due_date)
-    return jsonify({"message": "Task created successfully."}), 201
+    Todoist_notifications.create_task(task.content, task.due_date)
+    return {"message": "Task created successfully."}
 
-@app.route('/tasks', methods=['GET'])
+@app.get("/tasks", response_model=list)
 async def read_tasks():
     """
     Get all tasks
-    ---
-    responses:
-      200:
-        description: A list of tasks
     """
     tasks = Todoist_notifications.read_tasks()
-    return jsonify(tasks), 200
+    return tasks
 
-@app.route('/tasks/<task_id>', methods=['PUT'])
-async def update_task(task_id):
+@app.put("/tasks/{task_id}", response_model=dict)
+async def update_task(task_id: str, task: TaskUpdate):
     """
     Update a task
-    ---
-    parameters:
-      - name: task_id
-        in: path
-        type: string
-        required: true
-      - name: content
-        in: body
-        type: string
-        required: true
-    responses:
-      200:
-        description: Task updated successfully
     """
-    content = (await request.get_json()).get('content')
-    Todoist_notifications.update_task(task_id, content)
-    return jsonify({"message": "Task updated successfully."}), 200
+    Todoist_notifications.update_task(task_id, task.content)
+    return {"message": "Task updated successfully."}
 
-@app.route('/tasks/<task_id>', methods=['DELETE'])
-async def delete_task(task_id):
+@app.delete("/tasks/{task_id}", response_model=dict)
+async def delete_task(task_id: str):
     """
     Delete a task
-    ---
-    parameters:
-      - name: task_id
-        in: path
-        type: string
-        required: true
-    responses:
-      204:
-        description: Task deleted successfully
     """
     Todoist_notifications.delete_task(task_id)
-    return jsonify({"message": "Task deleted successfully."}), 204
+    return {"message": "Task deleted successfully."}
 
 if __name__ == '__main__':
     import uvicorn

@@ -1,16 +1,27 @@
 import requests
 import time
 from plyer import notification
-from quart import Quart, request, redirect
-import threading
-import json
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
+import threading
+import json
 
 # Load environment variables from .env file
 load_dotenv()
 
-app = Quart(__name__)
+app = FastAPI()
+
+# CORS middleware to allow requests from the frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this to your needs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 CLIENT_ID = os.getenv('CLIENT_ID')  # Get CLIENT_ID from environment variable
 CLIENT_SECRET = os.getenv('CLIENT_SECRET')  # Get CLIENT_SECRET from environment variable
@@ -25,18 +36,16 @@ def set_access_token(token):
     global access_token
     access_token = token
 
-@app.route('/')
+@app.get("/")
 async def home():
     auth_url = (
         f"{AUTHORIZATION_URL}?client_id={CLIENT_ID}&scope=data:read_write&state=random_state_string&redirect_uri={REDIRECT_URI}"
     )
-    return redirect(auth_url)
+    return RedirectResponse(url=auth_url)
 
-@app.route('/callback')
-async def callback():
+@app.get("/callback")
+async def callback(code: str):
     global access_token
-    code = (await request.args).get('code')
-
     token_data = {
         'client_id': CLIENT_ID,
         'client_secret': CLIENT_SECRET,
@@ -48,7 +57,7 @@ async def callback():
     token_json = token_response.json()
     access_token = token_json.get('access_token')
 
-    return f"Access token obtained: {access_token}"
+    return {"access_token": access_token}
 
 def fetch_todays_tasks():
     global access_token
@@ -87,8 +96,9 @@ def main_task_checker():
     else:
         print("No tasks due today.")
 
-def start_flask_app():
-    app.run(port=5000)
+def start_fastapi_app():
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=5000)
 
 def create_task(content, due_date=None):
     global access_token
@@ -169,7 +179,7 @@ def delete_task(task_id):
 
 if __name__ == "__main__":
     access_token = None
-    threading.Thread(target=start_flask_app).start()
+    threading.Thread(target=start_fastapi_app).start()
 
     while not access_token:
         print("Waiting for OAuth token... Please visit http://localhost:5000 to authenticate.")
