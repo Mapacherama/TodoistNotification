@@ -3,6 +3,7 @@ import time
 from plyer import notification
 from flask import Flask, request, redirect
 import threading
+import json
 
 app = Flask(__name__)
 
@@ -84,6 +85,83 @@ def main_task_checker():
 def start_flask_app():
     app.run(port=5000)
 
+def create_task(content, due_date=None):
+    global access_token
+    if not access_token:
+        print("No access token. Authenticate via OAuth first.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    task_data = {
+        "content": content,
+        "due": {"date": due_date} if due_date else None
+    }
+
+    response = requests.post(TODOIST_API_URL, headers=headers, data=json.dumps(task_data))
+    if response.status_code == 200:
+        print("Task created successfully.")
+    else:
+        print(f"Error creating task: {response.text}")
+
+def read_tasks():
+    global access_token
+    if not access_token:
+        print("No access token. Authenticate via OAuth first.")
+        return []
+
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    response = requests.get(TODOIST_API_URL, headers=headers)
+    if response.status_code == 200:
+        tasks = response.json()
+        return tasks
+    else:
+        print(f"Error fetching tasks: {response.text}")
+        return []
+
+def update_task(task_id, content):
+    global access_token
+    if not access_token:
+        print("No access token. Authenticate via OAuth first.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    update_data = {
+        "content": content
+    }
+
+    response = requests.post(f"{TODOIST_API_URL}/{task_id}", headers=headers, data=json.dumps(update_data))
+    if response.status_code == 204:
+        print("Task updated successfully.")
+    else:
+        print(f"Error updating task: {response.text}")
+
+def delete_task(task_id):
+    global access_token
+    if not access_token:
+        print("No access token. Authenticate via OAuth first.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    response = requests.delete(f"{TODOIST_API_URL}/{task_id}", headers=headers)
+    if response.status_code == 204:
+        print("Task deleted successfully.")
+    else:
+        print(f"Error deleting task: {response.text}")
+
 if __name__ == "__main__":
     access_token = None
     threading.Thread(target=start_flask_app).start()
@@ -93,3 +171,13 @@ if __name__ == "__main__":
         time.sleep(5)
 
     main_task_checker()
+
+    create_task("Test Task", "2024-12-31")
+    tasks = read_tasks()
+    print(tasks)
+
+    # Example of updating a task (replace 'task_id' with an actual task ID)
+    # update_task(task_id, "Updated Task Content")
+
+    # Example of deleting a task (replace 'task_id' with an actual task ID)
+    # delete_task(task_id)
