@@ -1,6 +1,6 @@
-from flask import Flask, redirect, request
+from flask import Flask, redirect, request, jsonify
 import requests
-import Todoist_notifications  # Import your Todoist notifications module
+import Todoist_notifications
 
 app = Flask(__name__)
 
@@ -15,6 +15,7 @@ def login():
 @app.route('/callback')
 def callback():
     code = request.args.get('code')
+    
     token_data = {
         'client_id': Todoist_notifications.CLIENT_ID,
         'client_secret': Todoist_notifications.CLIENT_SECRET,
@@ -29,6 +30,29 @@ def callback():
     Todoist_notifications.set_access_token(access_token)
     
     return f'Access Token: {access_token}'
+
+@app.route('/tasks', methods=['POST'])
+def create_task():
+    content = request.json.get('content')
+    due_date = request.json.get('due_date')
+    Todoist_notifications.create_task(content, due_date)
+    return jsonify({"message": "Task created successfully."}), 201
+
+@app.route('/tasks', methods=['GET'])
+def read_tasks():
+    tasks = Todoist_notifications.read_tasks()
+    return jsonify(tasks), 200
+
+@app.route('/tasks/<task_id>', methods=['PUT'])
+def update_task(task_id):
+    content = request.json.get('content')
+    Todoist_notifications.update_task(task_id, content)
+    return jsonify({"message": "Task updated successfully."}), 200
+
+@app.route('/tasks/<task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    Todoist_notifications.delete_task(task_id)
+    return jsonify({"message": "Task deleted successfully."}), 204
 
 if __name__ == '__main__':
     app.run(port=5000)
