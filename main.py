@@ -1,19 +1,22 @@
-from flask import Flask, redirect, request, jsonify
+from quart import Quart, redirect, request, jsonify
 import requests
 import Todoist_notifications
+from flasgger import Swagger
 
-app = Flask(__name__)
+app = Quart(__name__)
+swagger = Swagger(app)
 
 @app.route('/')
-def home():
+async def home():
     return 'Welcome! Please <a href="/login">login</a>.'
 
 @app.route('/login')
 def login():
-    return redirect(f"{Todoist_notifications.AUTHORIZATION_URL}?response_type=code&client_id={Todoist_notifications.CLIENT_ID}&redirect_uri={Todoist_notifications.REDIRECT_URI}")
+    scope = "data:read_write"
+    return redirect(f"{Todoist_notifications.AUTHORIZATION_URL}?response_type=code&client_id={Todoist_notifications.CLIENT_ID}&redirect_uri={Todoist_notifications.REDIRECT_URI}&scope={scope}")
 
 @app.route('/callback')
-def callback():
+async def callback():
     code = request.args.get('code')
     
     token_data = {
@@ -32,27 +35,79 @@ def callback():
     return f'Access Token: {access_token}'
 
 @app.route('/tasks', methods=['POST'])
-def create_task():
-    content = request.json.get('content')
-    due_date = request.json.get('due_date')
+async def create_task():
+    """
+    Create a new task
+    ---
+    parameters:
+      - name: content
+        in: body
+        type: string
+        required: true
+      - name: due_date
+        in: body
+        type: string
+        required: false
+    responses:
+      201:
+        description: Task created successfully
+    """
+    content = (await request.get_json()).get('content')
+    due_date = (await request.get_json()).get('due_date')
     Todoist_notifications.create_task(content, due_date)
     return jsonify({"message": "Task created successfully."}), 201
 
 @app.route('/tasks', methods=['GET'])
-def read_tasks():
+async def read_tasks():
+    """
+    Get all tasks
+    ---
+    responses:
+      200:
+        description: A list of tasks
+    """
     tasks = Todoist_notifications.read_tasks()
     return jsonify(tasks), 200
 
 @app.route('/tasks/<task_id>', methods=['PUT'])
-def update_task(task_id):
-    content = request.json.get('content')
+async def update_task(task_id):
+    """
+    Update a task
+    ---
+    parameters:
+      - name: task_id
+        in: path
+        type: string
+        required: true
+      - name: content
+        in: body
+        type: string
+        required: true
+    responses:
+      200:
+        description: Task updated successfully
+    """
+    content = (await request.get_json()).get('content')
     Todoist_notifications.update_task(task_id, content)
     return jsonify({"message": "Task updated successfully."}), 200
 
 @app.route('/tasks/<task_id>', methods=['DELETE'])
-def delete_task(task_id):
+async def delete_task(task_id):
+    """
+    Delete a task
+    ---
+    parameters:
+      - name: task_id
+        in: path
+        type: string
+        required: true
+    responses:
+      204:
+        description: Task deleted successfully
+    """
     Todoist_notifications.delete_task(task_id)
     return jsonify({"message": "Task deleted successfully."}), 204
 
 if __name__ == '__main__':
-    app.run(port=5000)
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=5000)

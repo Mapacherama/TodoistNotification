@@ -1,14 +1,19 @@
 import requests
 import time
 from plyer import notification
-from flask import Flask, request, redirect
+from quart import Quart, request, redirect
 import threading
 import json
+from dotenv import load_dotenv
+import os
 
-app = Flask(__name__)
+# Load environment variables from .env file
+load_dotenv()
 
-CLIENT_ID = 'your_client_id'
-CLIENT_SECRET = 'your_client_secret'
+app = Quart(__name__)
+
+CLIENT_ID = os.getenv('CLIENT_ID')  # Get CLIENT_ID from environment variable
+CLIENT_SECRET = os.getenv('CLIENT_SECRET')  # Get CLIENT_SECRET from environment variable
 REDIRECT_URI = 'http://localhost:5000/callback'
 AUTHORIZATION_URL = 'https://todoist.com/oauth/authorize'
 TOKEN_URL = 'https://todoist.com/oauth/access_token'
@@ -21,16 +26,16 @@ def set_access_token(token):
     access_token = token
 
 @app.route('/')
-def home():
+async def home():
     auth_url = (
         f"{AUTHORIZATION_URL}?client_id={CLIENT_ID}&scope=data:read_write&state=random_state_string&redirect_uri={REDIRECT_URI}"
     )
     return redirect(auth_url)
 
 @app.route('/callback')
-def callback():
+async def callback():
     global access_token
-    code = request.args.get('code')
+    code = (await request.args).get('code')
 
     token_data = {
         'client_id': CLIENT_ID,
