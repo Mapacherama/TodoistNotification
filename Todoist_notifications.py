@@ -34,12 +34,13 @@ async def authenticate(code: str):
 
 def authenticate_todoist():
     scope = "data:read_write"
-    auth_url = f"{api.get_authorization_url(redirect_uri=REDIRECT_URI, scope=scope)}"
+    auth_url = api.get_authorization_url(redirect_uri=REDIRECT_URI, scope=scope)
     return auth_url
 
 if __name__ == "__main__":
     access_token = None
 
     while not access_token:
-        print("Waiting for OAuth token... Please visit http://localhost:5000 to authenticate.")
+        print("Waiting for OAuth token... Please visit the following URL to authenticate:")
+        print(authenticate_todoist())
         time.sleep(5)
