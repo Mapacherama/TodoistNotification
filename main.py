@@ -3,7 +3,6 @@ from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2AuthorizationCodeBearer
 from pydantic import BaseModel
-import requests
 import Todoist_notifications
 
 app = FastAPI()
@@ -15,8 +14,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-TODOIST_API_URL = "https://api.todoist.com/rest/v2/tasks"
 
 oauth2_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl="http://localhost:5000/authenticate",
@@ -40,20 +37,12 @@ def todoist_authenticate():
 
 @app.get("/callback")
 async def callback(code: str):
-    token_data = {
-        'client_id': Todoist_notifications.CLIENT_ID,
-        'client_secret': Todoist_notifications.CLIENT_SECRET,
-        'code': code,
-        'redirect_uri': Todoist_notifications.REDIRECT_URI
-    }
+    token_json = await Todoist_notifications.authenticate(code)
     
-    response = requests.post(Todoist_notifications.TOKEN_URL, data=token_data)
-    
-    if response.status_code != 200:
-        raise HTTPException(status_code=response.status_code, detail="Failed to retrieve access token")
+    if "error" in token_json:
+        raise HTTPException(status_code=400, detail=token_json["error"])
 
-    token_data = response.json()
-    access_token = token_data.get('access_token')
+    access_token = token_json.get('access_token')
     
     if access_token:
         Todoist_notifications.set_access_token(access_token)
@@ -81,25 +70,6 @@ async def update_task(task_id: str, task: TaskUpdate):
 async def delete_task(task_id: str):
     Todoist_notifications.delete_task(task_id)
     return {"message": "Task deleted successfully."}
-
-@app.get("/proxy/todoist")
-async def proxy_todoist_api():
-    global access_token
-
-    if not access_token:
-        raise HTTPException(status_code=401, detail="No access token. Authenticate via OAuth first.")
-
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-
-    try:
-        response = requests.get(TODOIST_API_URL, headers=headers)
-        response.raise_for_status() 
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=response.status_code, detail=str(e))
 
 if __name__ == '__main__':
     import uvicorn
