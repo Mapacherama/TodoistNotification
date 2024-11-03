@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2AuthorizationCodeBearer
 from pydantic import BaseModel
 import requests
 import Todoist_notifications
@@ -13,6 +14,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+TODOIST_API_URL = "https://api.todoist.com/rest/v2/tasks"
+
+oauth2_scheme = OAuth2AuthorizationCodeBearer(
+    authorizationUrl="http://localhost:5000/authenticate",
+    tokenUrl="http://localhost:5000/callback"
 )
 
 class TaskCreate(BaseModel):
@@ -60,7 +68,7 @@ async def create_task(task: TaskCreate):
     return {"message": "Task created successfully."}
 
 @app.get("/tasks", response_model=list)
-async def read_tasks():
+async def read_tasks(token: str = Depends(oauth2_scheme)):
     tasks = Todoist_notifications.read_tasks()
     return tasks
 
@@ -73,6 +81,25 @@ async def update_task(task_id: str, task: TaskUpdate):
 async def delete_task(task_id: str):
     Todoist_notifications.delete_task(task_id)
     return {"message": "Task deleted successfully."}
+
+@app.get("/proxy/todoist")
+async def proxy_todoist_api():
+    global access_token
+
+    if not access_token:
+        raise HTTPException(status_code=401, detail="No access token. Authenticate via OAuth first.")
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(TODOIST_API_URL, headers=headers)
+        response.raise_for_status() 
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=response.status_code, detail=str(e))
 
 if __name__ == '__main__':
     import uvicorn
