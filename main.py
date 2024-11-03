@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -35,8 +35,10 @@ async def create_task(task: TaskCreate):
     return {"message": "Task created successfully.", "task": new_task}
 
 @app.get("/tasks", response_model=list)
-async def read_tasks():
-    tasks = todoist_task_service.read_tasks()
+async def read_tasks(filter_criteria: str = Query("p1", description="Filter criteria like 'p1' for high priority or 'today' for tasks due today")):
+    tasks = todoist_task_service.read_tasks(filter_criteria)
+    if "error" in tasks:
+        raise HTTPException(status_code=400, detail=tasks["error"])
     return tasks
 
 @app.put("/tasks/{task_id}", response_model=dict)
