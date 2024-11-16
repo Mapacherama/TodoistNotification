@@ -1,39 +1,14 @@
 from todoist_api_python.api import TodoistAPI
 import os
-import json
 from dotenv import load_dotenv
-import time
 from datetime import datetime
-from fastapi import HTTPException
-import requests
+from spotify_service import SpotifyService
 
 load_dotenv()
 
 TODOIST_API_TOKEN = os.getenv("TODOIST_API_TOKEN")
 api = TodoistAPI(TODOIST_API_TOKEN)
 
-class SpotifyService:
-    def __init__(self, base_url: str):
-        self.base_url = base_url
-
-    def notify_playback(self, track_uri: str, play_time: str):
-        spotify_url = f"{self.base_url}/schedule-playlist"
-        
-        params = {
-            "playlist_uri": track_uri,
-            "play_time": datetime.strptime(play_time, "%Y-%m-%dT%H:%M:%S%z").strftime("%H:%M")
-        }
-
-        try:
-            response = requests.get(spotify_url, params=params)
-            
-            if response.status_code != 200:
-                raise HTTPException(status_code=500, detail="Failed to schedule Spotify playback")
-
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="Error scheduling Spotify playback")
-
-# Initialize SpotifyService
 spotify_service = SpotifyService(base_url="http://127.0.0.1:8000")
 
 def read_tasks(filter_criteria="p1"):

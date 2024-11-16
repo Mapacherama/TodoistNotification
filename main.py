@@ -6,7 +6,6 @@ import os
 
 import todoist_task_service
 
-# Load environment variables
 load_dotenv()
 TODOIST_API_TOKEN = os.getenv("TODOIST_API_TOKEN")
 
@@ -23,6 +22,8 @@ app.add_middleware(
 class TaskCreate(BaseModel):
     content: str
     due_date: str = None
+    track_uri: str = None
+    play_time: str = None
 
 class TaskUpdate(BaseModel):
     content: str
@@ -32,6 +33,13 @@ async def create_task(task: TaskCreate):
     new_task = todoist_task_service.create_task(task.content, task.due_date)
     if "error" in new_task:
         raise HTTPException(status_code=400, detail=new_task["error"])
+
+    if task.track_uri and task.play_time:
+        try:
+            todoist_task_service.schedule_spotify_playback(task.track_uri, task.play_time)
+        except HTTPException as e:
+            raise HTTPException(status_code=e.status_code, detail=e.detail)
+
     return {"message": "Task created successfully.", "task": new_task}
 
 @app.get("/tasks", response_model=list)
